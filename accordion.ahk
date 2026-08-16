@@ -44,7 +44,11 @@ CoordMode("ToolTip", "Screen")
 ; "maximize" (default) or "workarea"
 global FULLSCREEN_MODE   := "maximize"
 
-global POLL_INTERVAL_MS  := 400      ; window discovery poll period
+global POLL_INTERVAL_MS  := 400      ; window discovery poll period (safety net)
+; React to window creation via SetWinEventHook instead of waiting for the next
+; poll. The poll stays on as a backstop for anything the hooks miss.
+global USE_WIN_EVENT_HOOK := true
+global EVENT_DEBOUNCE_MS  := 40      ; settle time after an event before scanning
 global MIN_WIN_W         := 200      ; smaller than this -> not managed
 global MIN_WIN_H         := 200
 global RECT_TOLERANCE    := 4        ; px slack before we touch a window again
@@ -141,6 +145,9 @@ global SuppressPromote := 0             ; hwnd whose activation must not reorder
 global DebugGui        := 0
 global ActivationFailures := 0
 
+global WinEventCallback := 0         ; must stay referenced or it is collected
+global WinEventHooks    := []        ; HWINEVENTHOOK handles, unhooked on exit
+
 ; saved SystemParametersInfo values, restored on exit
 global ORIG_FGLOCK   := ""
 global ORIG_TRACKING := ""
@@ -189,6 +196,9 @@ if (X_MOUSE_ON_START)
 InitStacks()
 ScanWindows()                 ; first pass: adopt + fullscreen everything
 SetTimer(ScanWindows, POLL_INTERVAL_MS)
+
+if (USE_WIN_EVENT_HOOK)
+    RegisterWinEventHooks()
 
 Notify("accordion ON  (" FULLSCREEN_MODE ")"
        . "  mouse->focus=" (MOUSE_FOLLOW_FOCUS ? MOUSE_FOLLOW_TARGET : "off")
@@ -500,6 +510,68 @@ RemoveFromStacks(hwnd) {
     for mon, h in LastFocused.Clone()
         if (h = hwnd)
             LastFocused.Delete(mon)
+}
+
+; ---------------------------------------------------------------------------
+;  CORE: window event hooks
+;
+;  A new window would otherwise sit at its natural size until the next poll
+;  tick -- visibly "small, then jump". These hooks cut that to EVENT_DEBOUNCE_MS.
+;  The hook itself does no work: it just schedules a scan, so all the real
+;  logic stays on one path and the Scanning re-entrancy guard still holds.
+; ---------------------------------------------------------------------------
+
+RegisterWinEventHooks() {
+    global WinEventCallback, WinEventHooks
+
+    ; void CALLBACK WinEventProc(HWINEVENTHOOK, DWORD event, HWND, LONG idObject,
+    ;                            LONG idChild, DWORD idEventThread, DWORD dwmsEventTime)
+    WinEventCallback := CallbackCreate(WinEventProc, "", 7)
+
+    ; WINEVENT_OUTOFCONTEXT (0) | WINEVENT_SKIPOWNPROCESS (2) -- events are
+    ; delivered to our message loop, and our own windows are not reported.
+    flags := 0x0002
+
+    ; 0x8000 EVENT_OBJECT_CREATE .. 0x8003 EVENT_OBJECT_HIDE
+    AddWinEventHook(0x8000, 0x8003, flags, "OBJECT_CREATE..HIDE")
+    ; 0x0003 EVENT_SYSTEM_FOREGROUND -- focus changed by any means
+    AddWinEventHook(0x0003, 0x0003, flags, "SYSTEM_FOREGROUND")
+    ; 0x0016 EVENT_SYSTEM_MINIMIZEEND -- restored from the taskbar
+    AddWinEventHook(0x0016, 0x0016, flags, "SYSTEM_MINIMIZEEND")
+}
+
+AddWinEventHook(evMin, evMax, flags, name) {
+    global WinEventHooks, WinEventCallback
+    h := DllCall("SetWinEventHook", "uint", evMin, "uint", evMax,
+                 "ptr", 0, "ptr", WinEventCallback,
+                 "uint", 0, "uint", 0, "uint", flags, "ptr")
+    if (h) {
+        WinEventHooks.Push(h)
+        Log("win event hook registered: " name " (" Format("0x{:04X}", evMin)
+            . ".." Format("0x{:04X}", evMax) ")")
+    } else {
+        Log("WIN EVENT HOOK FAILED: " name " -- falling back to the "
+            . POLL_INTERVAL_MS "ms poll")
+    }
+}
+
+WinEventProc(hHook, event, hwnd, idObject, idChild, idEventThread, dwmsEventTime) {
+    ; Runs during message dispatch: stay cheap and never throw.
+    try {
+        if (!ACCORDION_ENABLED)
+            return
+        if (idObject != 0 || idChild != 0)     ; OBJID_WINDOW only, not controls
+            return
+        ; Debounce: a burst of events (create, show, foreground) collapses into
+        ; one scan, and the delay lets the window finish settling first.
+        SetTimer(ScanSoon, -EVENT_DEBOUNCE_MS)
+    }
+}
+
+; Separate function object from ScanWindows so this one-shot does not replace
+; the periodic timer.
+ScanSoon() {
+    ScanWindows()
 }
 
 ; ---------------------------------------------------------------------------
@@ -965,6 +1037,7 @@ BuildDebugText() {
        . " (" MOUSE_FOLLOW_TARGET ")"
        . "   fullscreen_mode=" FULLSCREEN_MODE
        . "   poll=" POLL_INTERVAL_MS "ms"
+       . "   hooks=" (WinEventHooks.Length ? WinEventHooks.Length " active, debounce " EVENT_DEBOUNCE_MS "ms" : "none (polling only)")
        . "   admin=" (A_IsAdmin ? "yes" : "no")
        . "   dpi=" DPI_PATH "`r`n"
     s .= "managed=" Managed.Count "   activation_failures=" ActivationFailures
@@ -1068,5 +1141,8 @@ OnExitHandler(reason, code) {
     Log("=== accordion.ahk exit (" reason ") -- restoring system settings ===")
     try RestoreSystemSettings()
     try SetTimer(ScanWindows, 0)
+    try SetTimer(ScanSoon, 0)
+    for h in WinEventHooks
+        try DllCall("UnhookWinEvent", "ptr", h)
     return 0
 }

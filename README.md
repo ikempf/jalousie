@@ -237,7 +237,9 @@ Everything you'd want to change is in the config block at the top of
 | Constant | Default | Meaning |
 |---|---|---|
 | `FULLSCREEN_MODE` | `"maximize"` | `"maximize"` uses `WinMaximize` (Windows handles the invisible DWM border). `"workarea"` uses `WinMove` onto the monitor work area with an extended-frame-bounds correction. |
-| `POLL_INTERVAL_MS` | `400` | Window discovery poll period |
+| `POLL_INTERVAL_MS` | `400` | Window discovery poll period (backstop; the hooks do the fast path) |
+| `USE_WIN_EVENT_HOOK` | `true` | React to window creation via `SetWinEventHook` instead of waiting for the next poll |
+| `EVENT_DEBOUNCE_MS` | `40` | Settle time after a window event before scanning |
 | `MIN_WIN_W` / `MIN_WIN_H` | `200` | Windows smaller than this are ignored |
 | `RECT_TOLERANCE` | `4` | Slack (px) before a window is re-fullscreened |
 | `FOCUS_NEW_WINDOWS` | `true` | Activate newly detected windows |
@@ -313,9 +315,25 @@ write.
 
 ---
 
-## Known shortcuts still in here
+## How new windows get caught
 
-- Window discovery is a **400 ms polling timer**, not `SetWinEventHook`.
+Two mechanisms, deliberately overlapping:
+
+- **`SetWinEventHook`** (fast path) — hooks on window create/show/hide/destroy,
+  foreground change, and un-minimize. The hook does no work itself; it schedules
+  a scan `EVENT_DEBOUNCE_MS` later, so a burst of events collapses into one pass
+  and the window has a moment to settle first. This is what stops a new window
+  visibly appearing small and then jumping to fullscreen.
+- **The `POLL_INTERVAL_MS` timer** (backstop) — still running, and still the
+  thing that catches windows that change monitor, resize themselves, or
+  otherwise never raise an event we hooked.
+
+If a window still appears at its natural size first, lower `EVENT_DEBOUNCE_MS`;
+if new windows get maximized before they have finished laying out, raise it.
+Set `USE_WIN_EVENT_HOOK := false` to fall back to polling alone. The debug dump
+shows how many hooks are active.
+
+## Known shortcuts still in here
 - Monitors are identified by AHK index; a window's monitor is whichever
   monitor contains its rect centre. No `HMONITOR` mapping.
 - No virtual-desktop awareness, no tiling, no gaps/borders, no persistence.

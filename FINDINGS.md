@@ -73,8 +73,16 @@ Grep: `Select-String "ACTIVATE FAILED" .\accordion.log`
 - [ ] Did running elevated fix them?
 
 ### 4. Is 400 ms polling perceptibly laggy for new windows?
-- [ ] New window snaps to fullscreen fast enough
-- [ ] Or: visible "small window, then jump" flash — try `POLL_INTERVAL_MS := 150`
+**Yes — confirmed.** New windows visibly appeared at their natural size and then
+jumped to fullscreen. Fixed by adding `SetWinEventHook` (create/show/hide/destroy,
+foreground, un-minimize) which schedules a scan `EVENT_DEBOUNCE_MS` (40 ms) later;
+the poll stays as a backstop for self-resizing and monitor-hopping windows.
+This is the one place the PoC's "polling is fine" shortcut did not survive
+real use.
+- [ ] Is 40 ms debounce right? Lower if the flash is still visible; raise if
+      windows get maximized before they finish laying out.
+- [ ] Any app where the hook fires but the poll is what actually catches it?
+- [ ] CPU cost over a full day with hooks on (they fire far more often than 2.5/s)
 - [ ] Does a faster poll cause noticeable CPU use or fight with drags?
 - Chosen value that felt right: ____ ms
 - Conclusion for the Rust version: is `SetWinEventHook` (or `WinEventProc` on
@@ -139,8 +147,9 @@ experiment.
 sufficient for daily work, so the Rust daemon becomes a question of what it
 would add rather than what it would rescue. Candidates:
 
-- Event hooks (`SetWinEventHook`) instead of 400 ms polling — removes the lag
-  on new windows and the whole "don't fight the user" tolerance dance.
+- ~~Event hooks instead of polling~~ — **done in the AHK version**, since the
+  lag was the one thing real use would not tolerate. A Rust version could go
+  further and drop the backstop poll entirely.
 - Tiling layouts, which were always out of scope here.
 - Not needing an elevated interpreter running all session.
 
@@ -156,7 +165,8 @@ Must-haves for any future version, proved by this one:
 
 Things to leave behind:
 
-- Polling.
+- The backstop poll, if hooks can be made complete enough to cover
+  self-resizing and monitor-hopping windows.
 - The `#32770` blanket exclusion, if a better dialog heuristic exists.
 
 ---

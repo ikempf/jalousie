@@ -119,6 +119,14 @@ a genuinely hostile bug.
 - `OnExit` restores system settings on every path, including unhandled errors.
 - `ScanWindows` is guarded by the `Scanning` re-entrancy flag; it calls
   `Sleep()` internally, during which the poll timer would otherwise re-enter.
+- `WinEventProc` runs during message dispatch. It must stay cheap, must never
+  throw, and must not do the work itself — it only schedules `ScanSoon`. Keep
+  `ScanSoon` a distinct function object from `ScanWindows`, or `SetTimer` will
+  replace the periodic poll instead of adding a one-shot alongside it.
+- `WinEventCallback` must stay referenced by a global or it is collected while
+  Windows still holds the pointer. Every hook handle is unhooked in `OnExit`.
+- The poll is a **backstop, not dead code**. The hooks miss windows that resize
+  or change monitor on their own. Do not remove it when tempted.
 - The fullscreen policy is **never** applied while a mouse button is held, and
   never to a window already correct within `RECT_TOLERANCE`. Both rules exist
   to stop the manager fighting the user; violating either produces flicker and
