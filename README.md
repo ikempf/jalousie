@@ -105,8 +105,13 @@ Run **`install-startup.ps1`** once, from an **elevated** PowerShell:
 ```powershell
 # Right-click Start -> "Terminal (Admin)"
 cd $HOME\accordion
-.\install-startup.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-startup.ps1
 ```
+
+Windows disables script execution by default, hence the `-ExecutionPolicy
+Bypass` — it applies to that one invocation only and changes no system
+setting. (If you would rather run local scripts normally from now on:
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.)
 
 That registers a Scheduled Task which starts the script at every logon **with
 highest privileges**, so there is no UAC prompt — ever. Start it immediately
@@ -124,7 +129,7 @@ Useful switches:
 | `-ScriptPath <path>` | Use a script somewhere other than next to the installer |
 | `-AhkPath <path>` | Non-default AutoHotkey location |
 | `-TaskName <name>` | Register under a different task name |
-| `-Uninstall` | Remove the task again |
+| `-Uninstall` | Remove the task again (same `-ExecutionPolicy Bypass` applies) |
 
 The task is configured to never time out, to start on battery, and to ignore a
 second logon while it is already running. Leave `AUTO_ELEVATE := true` — the
