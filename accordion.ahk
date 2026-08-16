@@ -2,10 +2,10 @@
 #SingleInstance Force
 
 ; ============================================================================
-;  accordion.ahk -- keyboard-driven accordion window manager (feasibility PoC)
+;  accordion.ahk -- keyboard-driven accordion window manager for Windows 11
 ;
 ;  Everything is fullscreen; one window visible per monitor; cycle the stack.
-;  Disposable code. The findings are the deliverable. See FINDINGS.md.
+;  A yabai/skhd workflow, reproduced. See README.md.
 ;
 ;  EMERGENCY EXIT: Ctrl+Alt+Win+Q  (restores all system settings, exits)
 ;
@@ -44,7 +44,7 @@ CoordMode("ToolTip", "Screen")
 ; "maximize" (default) or "workarea"
 global FULLSCREEN_MODE   := "maximize"
 
-global POLL_INTERVAL_MS  := 400      ; window discovery poll period (safety net)
+global POLL_INTERVAL_MS  := 150      ; window discovery poll period (safety net)
 ; React to window creation via SetWinEventHook instead of waiting for the next
 ; poll. The poll stays on as a backstop for anything the hooks miss.
 global USE_WIN_EVENT_HOOK := true
@@ -76,7 +76,7 @@ global IGNORED_CLASSES := [
     "Shell_SecondaryTrayWnd",
     "Windows.UI.Core.CoreWindow",
     "TaskManagerWindow",
-    "#32770",                                  ; standard dialog class -- see FINDINGS.md
+    "#32770",                                  ; standard dialog class -- see README.md
     "Xaml_WindowedPopupClass",
     "TopLevelWindowForOverflowXamlIsland",
     "ForegroundStaging",
@@ -152,8 +152,8 @@ global ORIG_TRACKING := ""
 global ORIG_ZORDER   := ""
 global ORIG_TRKTIME  := ""
 
-; SPI constants (verified against Win32 docs -- note these differ from the
-; values quoted in the brief; see FINDINGS.md "Decisions")
+; SPI constants, verified against the Win32 headers. Getting one wrong here
+; fails silently -- 0x1002 is SPI_GETMENUANIMATION, not window tracking.
 global SPI_GETACTIVEWINDOWTRACKING  := 0x1000
 global SPI_SETACTIVEWINDOWTRACKING  := 0x1001
 global SPI_GETACTIVEWNDTRKZORDER    := 0x100C

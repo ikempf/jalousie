@@ -8,14 +8,11 @@ A single-file AutoHotkey v2 window manager (`accordion.ahk`) reproducing a
 yabai/skhd workflow on Windows 11: every window fullscreen, one visible per
 monitor, keyboard-driven cycling through a per-monitor stack.
 
-It began as a feasibility spike and **is now in daily use** — it starts at
-logon via a Scheduled Task and the user works under it all day. Treat it as
-working software: do not casually restructure it, and assume any regression is
-felt immediately.
-
-A Rust daemon is still the eventual goal (event hooks instead of polling, plus
-tiling). `FINDINGS.md` is the durable artefact — design decisions, real-world
-quirks, and the requirements that version must honour.
+**This is working software in daily use.** It starts at logon via a Scheduled
+Task and the user works under it all day, so any regression is felt within
+minutes. Do not casually restructure it. It is feature complete for its
+purpose; tiling layouts are the only likely future addition, and they are not
+committed to.
 
 ## Non-negotiables
 
@@ -145,7 +142,8 @@ a genuinely hostile bug.
 
 ## Instrumentation is a feature, not debug scaffolding
 
-The log is the point of the PoC. Preserve and extend it. Anything unexpected —
+The log is how anything gets diagnosed here — there are no tests and no way to
+reproduce a window-manager bug on demand. Preserve and extend it. Anything unexpected —
 an activation failure, a window that reverts its own size (`MISBEHAVING:`), a
 filter rejection — gets logged with title + class + process. **Do not swallow
 errors**; a surfaced failure is a finding.
@@ -153,6 +151,33 @@ errors**; a surfaced failure is a finding.
 Skip logging is edge-triggered (once per window per reason). Keep it that way;
 logging every rejection on every 400 ms tick produces tens of thousands of
 useless lines a minute.
+
+## Why the non-obvious bits are the way they are
+
+Rationale that is not derivable from the code, and that has already been paid
+for once:
+
+- **`#32770` is ignored wholesale.** It is the standard Win32 dialog class, so
+  ignoring it keeps throwaway modals out of the stack — but it also excludes
+  some real main windows (older Win32 apps, installers, Qt dialogs). A better
+  dialog heuristic would be a genuine improvement; a naive un-ignore is not.
+- **Filter-skip logging is edge-triggered**, once per window per reason, and
+  never for `no-title`. Logging every rejection every tick produced tens of
+  thousands of useless lines a minute.
+- **`mouse_follows_focus` targets the monitor centre, not the window centre**,
+  and fires only when focus crosses to a different monitor. With everything
+  fullscreen the two targets nearly coincide; the cross-monitor guard is what
+  makes it pleasant, because cycling a stack never touches the pointer.
+- **Navigation hotkeys stay live when accordion mode is off.** They are
+  harmless without the fullscreen policy, and it means the disable switch does
+  not cost you focus control.
+- **`AutoHotkeyGUI` is in `IGNORED_CLASSES`** so the debug window does not join
+  the stack it is reporting on.
+- **Original rects are snapshotted on first management**, which is what makes
+  `Ctrl+Alt+Win+U` possible. Disabling alone does not restore them.
+- **Elevation is required, not optional.** UIPI blocks a non-elevated process
+  from touching windows owned by elevated ones. The Scheduled Task exists to
+  supply that without a UAC prompt at every logon.
 
 ## Testing
 
@@ -174,9 +199,8 @@ by a human, interactively. If you are working in WSL or any Linux environment:
 
 | File | Role |
 |---|---|
-| `accordion.ahk` | The entire PoC. Ordered: directives → config → state → bootstrap → handlers → core → Win32 helpers → logging → `OnExit`. |
+| `accordion.ahk` | The whole thing. Ordered: directives → config → state → bootstrap → handlers → core → Win32 helpers → logging → `OnExit`. |
 | `README.md` | Install, run, full keybinding table, config reference, known Windows conflicts. |
-| `FINDINGS.md` | Evaluation checklist plus the `## Decisions` log. Update `## Decisions` whenever you make a non-obvious choice or correct the spec. |
 | `install-startup.ps1` | Registers a Scheduled Task to launch the script elevated at logon. Must be run elevated. Parse-check edits with `[System.Management.Automation.Language.Parser]::ParseFile`. |
 | `sync-to-windows.sh` | Copies deliverables between the repo and the Windows-side working copy, both directions. |
 | `accordion.log` | Runtime log, gitignored. |

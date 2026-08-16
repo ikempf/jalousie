@@ -12,7 +12,7 @@
 set -euo pipefail
 
 DEST_DEFAULT="/mnt/c/Users/$(cmd.exe /c 'echo %USERNAME%' 2>/dev/null | tr -d '\r\n')/accordion"
-FILES=(accordion.ahk install-startup.ps1 README.md AGENTS.md FINDINGS.md)
+FILES=(accordion.ahk install-startup.ps1 README.md AGENTS.md)
 
 cd "$(dirname "$0")"
 

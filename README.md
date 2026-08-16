@@ -5,13 +5,10 @@ every managed window is fullscreen on its monitor, only one is visible at a
 time, and you cycle through a per-monitor stack — the yabai/skhd "everything is
 fullscreen, cycle the stack" model.
 
-It started as a feasibility spike to answer *"does this interaction model feel
-good with my real apps on my real monitors?"* before writing it properly in
-Rust. The answer was yes, and it turned out to be **good enough to just use** —
-so it is now the daily driver, not a throwaway. A Rust daemon is still the
-eventual plan, mainly to replace polling with event hooks and to add tiling;
-`FINDINGS.md` collects what real use turns up, and doubles as the requirements
-list for that version.
+Built to reproduce a yabai/skhd setup after moving from macOS, because nothing
+on Windows offered the same workflow. It is **feature complete for daily use**
+and has been the author's window manager since. Tiling layouts may come later;
+the accordion model does not need them to be useful.
 
 ---
 
@@ -226,7 +223,7 @@ or moving one is a single line. A binding that Windows refuses is logged as
   no-op*, so if Windows swallows it you lose nothing — but **test it
   explicitly** anyway, because it tells you whether `Ctrl+Win` is a viable
   prefix at all. If it locks the screen, move `MOD_STACK` to something else
-  (`^!` Ctrl+Alt is the obvious candidate) and record it in `FINDINGS.md`.
+  (`^!` Ctrl+Alt is the obvious candidate).
 - `Ctrl+Win+Left/Right/D/F4` are virtual-desktop shortcuts. Unused here, but
   avoid them when remapping.
 - `Win+H` (voice typing), `Win+G` (Game Bar), `Win+K` (Cast), `Win+P`
@@ -246,7 +243,7 @@ Everything you'd want to change is in the config block at the top of
 | Constant | Default | Meaning |
 |---|---|---|
 | `FULLSCREEN_MODE` | `"maximize"` | `"maximize"` uses `WinMaximize` (Windows handles the invisible DWM border). `"workarea"` uses `WinMove` onto the monitor work area with an extended-frame-bounds correction. |
-| `POLL_INTERVAL_MS` | `400` | Window discovery poll period (backstop; the hooks do the fast path) |
+| `POLL_INTERVAL_MS` | `150` | Window discovery poll period (backstop; the hooks do the fast path) |
 | `USE_WIN_EVENT_HOOK` | `true` | React to window creation via `SetWinEventHook` instead of waiting for the next poll |
 | `EVENT_DEBOUNCE_MS` | `40` | Settle time after a window event before scanning |
 | `MIN_WIN_W` / `MIN_WIN_H` | `200` | Windows smaller than this are ignored |
@@ -264,8 +261,10 @@ The debug dump and the log tell you the exact class/process of anything
 misbehaving, so the loop is: press `D`, copy the class, paste it into the array.
 
 Note `#32770` (the standard Win32 dialog class) is ignored by default. This
-keeps modals out of the stack but also excludes some real app main windows.
-See `FINDINGS.md`.
+keeps throwaway modals out of the stack, at the cost of also excluding the
+occasional real main window — some older Win32 apps, installers and Qt dialogs
+use the same class. If an app never joins the stack, check the log for
+`SKIP[ignored-class]` before assuming a bug.
 
 ---
 
@@ -335,7 +334,7 @@ Two mechanisms, deliberately overlapping:
   a scan `EVENT_DEBOUNCE_MS` later, so a burst of events collapses into one pass
   and the window has a moment to settle first. This is what stops a new window
   visibly appearing small and then jumping to fullscreen.
-- **The `POLL_INTERVAL_MS` timer** (backstop) — still running, and still the
+- **The `POLL_INTERVAL_MS` timer** (backstop, 150 ms) — still running, and still the
   thing that catches windows that change monitor, resize themselves, or
   otherwise never raise an event we hooked.
 
@@ -344,7 +343,18 @@ if new windows get maximized before they have finished laying out, raise it.
 Set `USE_WIN_EVENT_HOOK := false` to fall back to polling alone. The debug dump
 shows how many hooks are active.
 
-## Known shortcuts still in here
-- Monitors are identified by AHK index; a window's monitor is whichever
-  monitor contains its rect centre. No `HMONITOR` mapping.
-- No virtual-desktop awareness, no tiling, no gaps/borders, no persistence.
+## Scope
+
+Deliberately not included:
+
+- **Tiling layouts.** Maybe later — the accordion model works well without them.
+- **Virtual desktops / workspaces.** They would mean undocumented COM.
+- Gaps, borders, animations, a status bar, a config GUI.
+- Persistence across restarts. Nothing is saved; quit and Windows is as it was.
+
+Implementation notes worth knowing:
+
+- Monitors are identified by AHK index; a window's monitor is whichever monitor
+  contains its rect centre. No `HMONITOR` mapping.
+- The script runs elevated so it can manage windows owned by elevated processes
+  (UIPI). Without that, admin apps silently refuse to be managed.
