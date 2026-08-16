@@ -1,8 +1,12 @@
 # FINDINGS — accordion window manager PoC
 
-Fill this in *while using it*, not afterwards. The code is disposable; this
-file is the deliverable. Aim for ~30 minutes of real work under the manager
-before answering the verdict at the bottom.
+Fill this in *while using it*, not afterwards. This file is the deliverable —
+it is what the Rust version gets built from.
+
+**Status: the spike succeeded and the script is in daily use.** It starts at
+logon via a Scheduled Task. The interaction model reproduces the yabai setup
+closely enough that replacing it is no longer urgent; what remains is to find
+out which apps misbehave over longer use.
 
 Log lives at `.\accordion.log`. `Ctrl+Alt+Win+D` dumps state to both the log
 and a GUI window.
@@ -16,6 +20,31 @@ and a GUI window.
 |  |  |  | Win11 ____ , AHK ____ |
 
 ---
+
+## Confirmed working
+
+Verified in real use, not just by reading the log:
+
+- [x] **Stack cycling** — `Ctrl+Win+J/K` walks the current monitor's stack.
+- [x] **Directional display focus** — `Ctrl+Alt+Win+H/J/K/L` lands on the
+      neighbouring monitor's last-focused window.
+- [x] **Hover focus** — `focus_follows_mouse` + autoraise via Windows' native
+      X-mouse (`SPI_SETACTIVEWINDOWTRACKING` / `SPI_SETACTIVEWNDTRKZORDER`)
+      works. Hovering a window focuses and raises it.
+- [x] **Cursor follows keyboard focus across screens** — jumping displays with
+      the keyboard warps the pointer to the centre of the target monitor;
+      cycling the stack within one screen leaves it alone.
+- [x] The two mouse behaviours cooperate rather than fight: the warp lands the
+      pointer, X-mouse then agrees with the window we just focused.
+- [x] Elevated startup via Scheduled Task, no UAC prompt.
+
+Still to confirm:
+
+- [ ] **Survives a reboot** — task fires at logon, script starts, all bindings
+      register, nothing needs a manual nudge. *(testing now)*
+- [ ] Long-run stability: no drift in the stacks, no leak, no runaway CPU
+      from the 400 ms poll over a full working day.
+- [ ] Which apps misbehave (see below) — needs more than a session to surface.
 
 ## Checklist
 
@@ -52,6 +81,7 @@ Grep: `Select-String "ACTIVATE FAILED" .\accordion.log`
   `EVENT_OBJECT_SHOW` / `EVENT_SYSTEM_FOREGROUND`) mandatory, or is polling fine?
 
 ### 5. Does `focus_follows_mouse` via SPI work reliably?
+*Confirmed working. Remaining questions are about edge cases and restore-on-exit.*
 Grep: `Select-String "SPI " .\accordion.log` — look for `VERIFIED` vs `MISMATCH`.
 - [ ] `SPI_SETACTIVEWINDOWTRACKING` read back as 1
 - [ ] Autoraise (`SPI_SETACTIVEWNDTRKZORDER`) actually raises
@@ -101,15 +131,33 @@ prefix at all.
 
 ## Verdict
 
-**Is the accordion model worth building properly in Rust?**
+**Does the accordion model work?** Yes — confirmed in real use, and close
+enough to the yabai setup that it is now the daily driver rather than an
+experiment.
 
-- [ ] Yes, as specified
-- [ ] Yes, but with these changes:
-- [ ] No — because:
+**Is it worth rebuilding in Rust?** Not urgent any more. The AHK version is
+sufficient for daily work, so the Rust daemon becomes a question of what it
+would add rather than what it would rescue. Candidates:
 
-Must-haves for the real daemon that this PoC proved:
+- Event hooks (`SetWinEventHook`) instead of 400 ms polling — removes the lag
+  on new windows and the whole "don't fight the user" tolerance dance.
+- Tiling layouts, which were always out of scope here.
+- Not needing an elevated interpreter running all session.
 
-Things the PoC got wrong that shouldn't be carried over:
+Must-haves for any future version, proved by this one:
+
+- The DWM cloak check. Without it the stack fills with UWP ghost windows.
+- Per-monitor-v2 DPI awareness before any coordinate maths.
+- Never touching a window that is already correct, and never while a mouse
+  button is down.
+- Stable cycling (cycle index + suppressed promotion), or repeated presses
+  bounce between two windows.
+- Capture-and-restore for every system-wide setting, on every exit path.
+
+Things to leave behind:
+
+- Polling.
+- The `#32770` blanket exclusion, if a better dialog heuristic exists.
 
 ---
 

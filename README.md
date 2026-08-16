@@ -1,14 +1,17 @@
 # accordion.ahk
 
-A disposable AutoHotkey v2 proof-of-concept for a **keyboard-driven accordion
-window manager** on Windows 11: every managed window is fullscreen on its
-monitor, only one is visible at a time, and you cycle through a per-monitor
-stack — the yabai/skhd "everything is fullscreen, cycle the stack" model.
+A **keyboard-driven accordion window manager** for Windows 11, in AutoHotkey v2:
+every managed window is fullscreen on its monitor, only one is visible at a
+time, and you cycle through a per-monitor stack — the yabai/skhd "everything is
+fullscreen, cycle the stack" model.
 
-It was built to answer *"does this interaction model feel good with my real
-apps on my real monitors?"* before any of it gets written properly in Rust.
-The answer so far is yes — see `FINDINGS.md`, which is the actual deliverable
-of the exercise and doubles as the requirements list for the Rust version.
+It started as a feasibility spike to answer *"does this interaction model feel
+good with my real apps on my real monitors?"* before writing it properly in
+Rust. The answer was yes, and it turned out to be **good enough to just use** —
+so it is now the daily driver, not a throwaway. A Rust daemon is still the
+eventual plan, mainly to replace polling with event hooks and to add tiling;
+`FINDINGS.md` collects what real use turns up, and doubles as the requirements
+list for that version.
 
 ---
 
@@ -310,7 +313,7 @@ write.
 
 ---
 
-## Known shortcuts taken in this PoC
+## Known shortcuts still in here
 
 - Window discovery is a **400 ms polling timer**, not `SetWinEventHook`.
 - Monitors are identified by AHK index; a window's monitor is whichever

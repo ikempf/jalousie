@@ -4,14 +4,18 @@ Guidance for AI agents working in this repository.
 
 ## What this is
 
-A single-file AutoHotkey v2 proof-of-concept (`accordion.ahk`) reproducing a
+A single-file AutoHotkey v2 window manager (`accordion.ahk`) reproducing a
 yabai/skhd workflow on Windows 11: every window fullscreen, one visible per
 monitor, keyboard-driven cycling through a per-monitor stack.
 
-It is a **feasibility spike**, and it succeeded. The eventual plan is a proper
-daemon in Rust. Treat the AHK code as disposable and `FINDINGS.md` as the
-durable artefact — it records design decisions, real-world quirks, and the
-requirements the Rust version must honour.
+It began as a feasibility spike and **is now in daily use** — it starts at
+logon via a Scheduled Task and the user works under it all day. Treat it as
+working software: do not casually restructure it, and assume any regression is
+felt immediately.
+
+A Rust daemon is still the eventual goal (event hooks instead of polling, plus
+tiling). `FINDINGS.md` is the durable artefact — design decisions, real-world
+quirks, and the requirements that version must honour.
 
 ## Non-negotiables
 
@@ -21,8 +25,9 @@ requirements the Rust version must honour.
 - **No virtual desktop / workspace code.** `IVirtualDesktopManager` and other
   undocumented COM are explicitly out of scope.
 - **No tiling layouts.** That is the Rust version's problem.
-- Optimise for "evaluable in 30 minutes of real use", not architecture.
-  Polling over hooks is fine. Duplication is fine. No abstractions "for later".
+- Polling over hooks is fine, duplication is fine, no abstractions "for later".
+  The simplicity is deliberate; it is also why it works. Do not add structure
+  the current feature set does not need.
 
 ## The AHK v2 trap that will bite you
 
