@@ -18,7 +18,7 @@
 [CmdletBinding()]
 param(
     # Path to the script. Defaults to accordion.ahk next to this installer.
-    [string]$ScriptPath = (Join-Path $PSScriptRoot 'accordion.ahk'),
+    [string]$ScriptPath,
 
     # AutoHotkey v2 interpreter.
     [string]$AhkPath = 'C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe',
@@ -35,6 +35,24 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# $PSScriptRoot is not reliably populated while parameter defaults are bound,
+# so work out where we live here instead.
+$here = if ($PSScriptRoot) { $PSScriptRoot }
+        elseif ($PSCommandPath) { Split-Path $PSCommandPath -Parent }
+        elseif ($MyInvocation.MyCommand.Path) { Split-Path $MyInvocation.MyCommand.Path -Parent }
+        else { (Get-Location).Path }
+
+$self = if ($PSCommandPath) { Split-Path $PSCommandPath -Leaf } else { 'install-startup.ps1' }
+
+if (-not $ScriptPath) { $ScriptPath = Join-Path $here 'accordion.ahk' }
+
+function Fail([string]$Message) {
+    Write-Host ""
+    Write-Host $Message -ForegroundColor Red
+    Write-Host ""
+    exit 1
+}
+
 function Test-Elevated {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
     (New-Object Security.Principal.WindowsPrincipal $id).IsInRole(
@@ -42,14 +60,14 @@ function Test-Elevated {
 }
 
 if (-not (Test-Elevated)) {
-    Write-Error @"
+    $flag = if ($Uninstall) { ' -Uninstall' } else { '' }
+    Fail @"
 This must run from an elevated PowerShell.
 
   Right-click the Start button -> "Terminal (Admin)", then:
-    cd '$PSScriptRoot'
-    .\$(Split-Path $PSCommandPath -Leaf)$(if ($Uninstall) { ' -Uninstall' })
+    cd '$here'
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\$self$flag
 "@
-    exit 1
 }
 
 if ($Uninstall) {
@@ -64,12 +82,10 @@ if ($Uninstall) {
 }
 
 if (-not (Test-Path -LiteralPath $AhkPath)) {
-    Write-Error "AutoHotkey not found at '$AhkPath'. Install AHK v2, or pass -AhkPath."
-    exit 1
+    Fail "AutoHotkey not found at '$AhkPath'. Install AHK v2, or pass -AhkPath <path>."
 }
 if (-not (Test-Path -LiteralPath $ScriptPath)) {
-    Write-Error "Script not found at '$ScriptPath'. Pass -ScriptPath."
-    exit 1
+    Fail "Script not found at '$ScriptPath'. Pass -ScriptPath <path>."
 }
 
 $ScriptPath = (Resolve-Path -LiteralPath $ScriptPath).Path
@@ -113,4 +129,4 @@ Write-Host "  trigger     : at logon for $user$(if ($DelaySeconds) { ", after ${
 Write-Host "  privileges  : highest (no UAC prompt at logon)"
 Write-Host ""
 Write-Host "Start it now without logging out:  Start-ScheduledTask -TaskName '$TaskName'"
-Write-Host "Remove it later:                   .\$(Split-Path $PSCommandPath -Leaf) -Uninstall"
+Write-Host "Remove it later:                   powershell -NoProfile -ExecutionPolicy Bypass -File .\$self -Uninstall"
