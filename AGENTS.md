@@ -156,4 +156,5 @@ by a human, interactively. If you are working in WSL or any Linux environment:
 | `accordion.ahk` | The entire PoC. Ordered: directives → config → state → bootstrap → handlers → core → Win32 helpers → logging → `OnExit`. |
 | `README.md` | Install, run, full keybinding table, config reference, known Windows conflicts. |
 | `FINDINGS.md` | Evaluation checklist plus the `## Decisions` log. Update `## Decisions` whenever you make a non-obvious choice or correct the spec. |
+| `install-startup.ps1` | Registers a Scheduled Task to launch the script elevated at logon. Must be run elevated. Parse-check edits with `[System.Management.Automation.Language.Parser]::ParseFile`. |
 | `accordion.log` | Runtime log, gitignored. |

@@ -98,23 +98,44 @@ elevated processes, so without this, any admin app silently refuses to be
 managed. Decline the UAC prompt and it keeps running non-elevated, warns you,
 and logs it. Set `AUTO_ELEVATE := false` in the config block to stop asking.
 
-### Run it at login
+### Run it at login (always on)
 
-`Win+R` → `shell:startup` → put a shortcut to `accordion.ahk` in that folder.
-Because the script elevates itself, that produces a UAC prompt at every login.
-To avoid it, create a Task Scheduler task instead:
+Run **`install-startup.ps1`** once, from an **elevated** PowerShell:
 
 ```powershell
-$exe = "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
-$ahk = "$HOME\accordion\accordion.ahk"
-$action  = New-ScheduledTaskAction -Execute $exe -Argument "`"$ahk`""
-$trigger = New-ScheduledTaskTrigger -AtLogOn
-$princ   = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest
-Register-ScheduledTask -TaskName "accordion" -Action $action -Trigger $trigger -Principal $princ
+# Right-click Start -> "Terminal (Admin)"
+cd $HOME\accordion
+.\install-startup.ps1
 ```
 
-Set `AUTO_ELEVATE := false` in the script when you do this — the task already
-runs elevated, and the script's own `*RunAs` relaunch would be redundant.
+That registers a Scheduled Task which starts the script at every logon **with
+highest privileges**, so there is no UAC prompt — ever. Start it immediately
+without logging out:
+
+```powershell
+Start-ScheduledTask -TaskName accordion
+```
+
+Useful switches:
+
+| | |
+|---|---|
+| `-DelaySeconds 30` | Wait longer after logon before starting (default `15`, so the shell is up first) |
+| `-ScriptPath <path>` | Use a script somewhere other than next to the installer |
+| `-AhkPath <path>` | Non-default AutoHotkey location |
+| `-TaskName <name>` | Register under a different task name |
+| `-Uninstall` | Remove the task again |
+
+The task is configured to never time out, to start on battery, and to ignore a
+second logon while it is already running. Leave `AUTO_ELEVATE := true` — the
+task already runs elevated, so the script's own relaunch never triggers, and
+the flag stays as a fallback if you ever launch it by hand.
+
+**Startup-folder alternative** (`Win+R` → `shell:startup` → drop a shortcut to
+`accordion.ahk` in it): simpler, no admin needed to set up, but it cannot run
+elevated. You then get a UAC prompt at every single logon, or you set
+`AUTO_ELEVATE := false` and lose the ability to manage windows owned by
+elevated processes. The scheduled task avoids both.
 
 ---
 
