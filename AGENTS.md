@@ -145,9 +145,12 @@ by a human, interactively. If you are working in WSL or any Linux environment:
 - Do the checks you actually can: the global-scope audit above, brace balance,
   `DllCall` signatures against documentation, and a read-through for the
   invariants listed above.
-- The user's Windows-side working copy is `C:\Users\iljak\accordion\`, which is
-  reachable from WSL at `/mnt/c/Users/iljak/accordion/`. Copy changed files
-  there after editing; the git repo remains the source of truth.
+- The user's Windows-side working copy is `C:\Users\iljak\accordion\`, reachable
+  from WSL at `/mnt/c/Users/iljak/accordion/`. It is what the Scheduled Task
+  actually runs. **Nothing syncs automatically** — run `./sync-to-windows.sh`
+  after editing, and tell the user to reload with `Ctrl+Alt+Win+R`. Use
+  `./sync-to-windows.sh --back` to pull in edits they made on the Windows side
+  before you commit. The git repo remains the source of truth.
 
 ## Files
 
@@ -157,4 +160,5 @@ by a human, interactively. If you are working in WSL or any Linux environment:
 | `README.md` | Install, run, full keybinding table, config reference, known Windows conflicts. |
 | `FINDINGS.md` | Evaluation checklist plus the `## Decisions` log. Update `## Decisions` whenever you make a non-obvious choice or correct the spec. |
 | `install-startup.ps1` | Registers a Scheduled Task to launch the script elevated at logon. Must be run elevated. Parse-check edits with `[System.Management.Automation.Language.Parser]::ParseFile`. |
+| `sync-to-windows.sh` | Copies deliverables between the repo and the Windows-side working copy, both directions. |
 | `accordion.log` | Runtime log, gitignored. |

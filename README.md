@@ -98,6 +98,36 @@ elevated processes, so without this, any admin app silently refuses to be
 managed. Decline the UAC prompt and it keeps running non-elevated, warns you,
 and logs it. Set `AUTO_ELEVATE := false` in the config block to stop asking.
 
+### Where the files live
+
+The git repo is in WSL; AutoHotkey runs on the Windows side and the Scheduled
+Task points at a **Windows-side copy** (`C:\Users\<you>\accordion\`).
+`install-startup.ps1` registers the task — it does **not** copy any files, and
+nothing syncs automatically.
+
+After editing in the repo:
+
+```bash
+./sync-to-windows.sh          # copies changed files to the Windows copy
+```
+
+then reload the running script with `Ctrl+Alt+Win+R`. Re-run the installer only
+if the *path* changed, not the contents.
+
+If you edited the Windows copy directly (tweaking the ignore lists in Notepad,
+say), pull it back before committing:
+
+```bash
+./sync-to-windows.sh --back
+git diff
+```
+
+Both directions copy only files that actually differ, and take an optional
+destination argument if you keep the script somewhere else.
+
+If you work entirely on Windows, none of this applies — clone the repo to a
+Windows path and point the task at it directly.
+
 ### Run it at login (always on)
 
 Run **`install-startup.ps1`** once, from an **elevated** PowerShell:
