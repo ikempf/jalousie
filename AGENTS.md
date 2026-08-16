@@ -149,7 +149,7 @@ filter rejection — gets logged with title + class + process. **Do not swallow
 errors**; a surfaced failure is a finding.
 
 Skip logging is edge-triggered (once per window per reason). Keep it that way;
-logging every rejection on every 400 ms tick produces tens of thousands of
+logging every rejection on every poll tick produces tens of thousands of
 useless lines a minute.
 
 ## Why the non-obvious bits are the way they are
