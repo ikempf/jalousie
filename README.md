@@ -63,15 +63,34 @@ AutoHotkey **v2.0+** is required. It is not installed for you.
 winget install AutoHotkey.AutoHotkey
 ```
 
-Verify: `AutoHotkey64.exe /version` should print `2.x`.
+This installs to `C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe`.
+Downloading the installer from [autohotkey.com](https://www.autohotkey.com/)
+puts it in the same place.
+
+**The installer does not add AutoHotkey to `PATH`** — by any install method.
+So `AutoHotkey64.exe` will not resolve in a fresh PowerShell until you either
+use the full path, double-click `.ahk` files in Explorer (the installer does
+register the file association), or add it yourself, once:
+
+```powershell
+$dir = "C:\Program Files\AutoHotkey\v2"
+$p = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($p -notlike "*$dir*") {
+    [Environment]::SetEnvironmentVariable("Path", ($p.TrimEnd(';') + ";$dir"), "User")
+}
+```
+
+Restart the terminal afterwards, then verify: `AutoHotkey64.exe --version`
+should print `2.x`.
 
 ## Run
 
 ```powershell
-AutoHotkey64.exe .\accordion.ahk
+& "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" .\accordion.ahk
 ```
 
-or just double-click `accordion.ahk` once AHK v2 is the registered handler.
+or just double-click `accordion.ahk` in Explorer — the installer registers the
+file association, so this works without touching `PATH` at all.
 
 On start the script tries to **relaunch itself elevated** (`*RunAs`). Windows'
 UIPI prevents a non-elevated process from moving or activating windows owned by
