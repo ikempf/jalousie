@@ -99,6 +99,8 @@ Grep: `Select-String "SPI " .\accordion.log` — look for `VERIFIED` vs `MISMATC
 - [ ] Is `MOUSE_TRK_TIMEOUT := 0` too twitchy when the pointer merely crosses a window?
 - [ ] Does hover-focus work over elevated windows / UWP apps, or only some?
 - [ ] Was it restored correctly on exit? (**check this** — leaving it on is hostile)
+- [x] Both mouse behaviours are wanted permanently — the manual on/off hotkeys
+      (`V`/`C`) were removed as clutter. They now follow accordion mode.
 - [ ] Is mouse_follows_focus welcome, or does the pointer warp feel wrong on a wide setup?
 - [ ] `MOUSE_FOLLOW_TARGET`: is monitor-centre right, or do you want window-centre / no warp at all?
 - [ ] Does the "only warp across monitors" rule hold up, or do you want a warp on every focus change?

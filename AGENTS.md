@@ -131,6 +131,11 @@ a genuinely hostile bug.
   never to a window already correct within `RECT_TOLERANCE`. Both rules exist
   to stop the manager fighting the user; violating either produces flicker and
   broken drags.
+- `SetAccordion()` is the single on/off path: it starts or stops the scan and
+  both mouse behaviours together. Anything that needs the manager to stand down
+  must go through it, not flip `ACCORDION_ENABLED` directly. `Cmd_RestoreAll`
+  depends on this — restoring window rects while the scan is live just
+  re-maximizes them within one tick.
 - Hotkeys are registered from the `BINDINGS` table via `Hotkey()`, never with
   `::` labels. A registration failure is caught, logged, and does not abort
   the remaining registrations.

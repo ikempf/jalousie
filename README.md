@@ -42,6 +42,17 @@ every system setting back.
 
 ---
 
+## Turning it off
+
+- `Ctrl+Alt+Win+Space` — accordion off. The scan stops, nothing is
+  re-maximized, and both mouse behaviours switch off. Windows stay where they
+  are; navigation hotkeys keep working. Press again to resume.
+- `Ctrl+Alt+Win+U` — the same, **plus** every window goes back to the position,
+  size and maximized state it had when the manager first saw it. Disabling is
+  part of the action on purpose: restoring while the scan is still running just
+  makes everything snap straight back to fullscreen.
+- `Ctrl+Alt+Win+Q` — quit, restoring all system settings.
+
 ## Emergency exit: `Ctrl + Alt + Win + Q`
 
 This is the first hotkey registered and its handler depends on nothing else in
@@ -194,10 +205,8 @@ elevated processes. The scheduled task avoids both.
 | `Ctrl+Alt+Win+O` | Move focused window to **previous** display and follow it |
 | `Ctrl+Alt+Win+P` | Move focused window to **next** display and follow it |
 | `Ctrl+Alt+Win+Space` | Toggle accordion mode on/off |
-| `Ctrl+Alt+Win+C` | Mouse integration **OFF** |
-| `Ctrl+Alt+Win+V` | Mouse integration **ON** |
 | `Ctrl+Alt+Win+D` | Debug dump — GUI + log (press again to close) |
-| `Ctrl+Alt+Win+U` | Restore all windows to their pre-management rects |
+| `Ctrl+Alt+Win+U` | Turn accordion **off** and restore every window to its pre-management rect |
 | `Ctrl+Alt+Win+R` | Reload the script |
 | `Ctrl+Alt+Win+Q` | **Emergency exit** |
 
@@ -285,8 +294,10 @@ See `FINDINGS.md`.
   `X_MOUSE_ON_START := false` if you would rather opt in per session with
   `Ctrl+Alt+Win+V`.
 
-`Ctrl+Alt+Win+V` and `Ctrl+Alt+Win+C` turn **both** halves on and off
-together. Both are on at startup.
+Both are on at startup and follow the manager: turning accordion off
+(`Ctrl+Alt+Win+Space` or `Ctrl+Alt+Win+U`) turns them off too, and turning it
+back on restores them. There is no separate hotkey — set `X_MOUSE_ON_START`
+and `MOUSE_FOLLOW_TARGET` in the config block instead.
 
 The original values are captured before the first enable and restored on exit.
 Every SPI call is logged with a read-back verification (`VERIFIED` /

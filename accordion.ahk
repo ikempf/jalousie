@@ -114,10 +114,8 @@ global BINDINGS := [
     [MOD_ACTION,  "o",     Cmd_MoveDisplayPrev,  "move window to prev display"],
     [MOD_ACTION,  "p",     Cmd_MoveDisplayNext,  "move window to next display"],
     [MOD_ACTION,  "Space", Cmd_ToggleAccordion,  "toggle accordion mode"],
-    [MOD_ACTION,  "c",     Cmd_MouseOff,         "mouse integration OFF"],
-    [MOD_ACTION,  "v",     Cmd_MouseOn,          "mouse integration ON"],
     [MOD_ACTION,  "d",     Cmd_DebugDump,        "debug dump (toggle)"],
-    [MOD_ACTION,  "u",     Cmd_RestoreAll,       "restore original window rects"],
+    [MOD_ACTION,  "u",     Cmd_RestoreAll,       "disable + restore original rects"],
     [MOD_ACTION,  "r",     Cmd_Reload,           "reload script"]
 ]
 
@@ -241,21 +239,27 @@ Cmd_MoveDisplayPrev(*) => MoveWindowToDisplay(-1)
 Cmd_MoveDisplayNext(*) => MoveWindowToDisplay(+1)
 
 Cmd_ToggleAccordion(*) {
-    global ACCORDION_ENABLED
-    ACCORDION_ENABLED := !ACCORDION_ENABLED
-    Log("cmd: toggle accordion -> " (ACCORDION_ENABLED ? "ON" : "OFF"))
-    if (ACCORDION_ENABLED) {
-        SetTimer(ScanWindows, POLL_INTERVAL_MS)
-        Notify("accordion ON")
-    } else {
-        SetTimer(ScanWindows, 0)
-        SetMouseIntegration(false)
-        Notify("accordion OFF  (navigation hotkeys still live)")
-    }
+    SetAccordion(!ACCORDION_ENABLED)
+    Notify(ACCORDION_ENABLED
+           ? "accordion ON"
+           : "accordion OFF  (navigation hotkeys still live)")
 }
 
-Cmd_MouseOn(*)  => SetMouseIntegration(true)
-Cmd_MouseOff(*) => SetMouseIntegration(false)
+; Single on/off path. Stops the scan and both mouse behaviours together, so
+; nothing re-snaps windows or moves the pointer while the manager is off.
+SetAccordion(on) {
+    global ACCORDION_ENABLED
+    ACCORDION_ENABLED := on ? true : false
+    Log("accordion -> " (ACCORDION_ENABLED ? "ON" : "OFF"))
+    if (ACCORDION_ENABLED) {
+        SetTimer(ScanWindows, POLL_INTERVAL_MS)
+        SetMouseIntegration(X_MOUSE_ON_START)
+    } else {
+        SetTimer(ScanWindows, 0)
+        SetTimer(ScanSoon, 0)
+        SetMouseIntegration(false)
+    }
+}
 
 Cmd_Reload(*) {
     Log("cmd: reload")
@@ -272,6 +276,11 @@ Cmd_EmergencyExit(*) {
 
 Cmd_RestoreAll(*) {
     Log("cmd: restore all (" Original.Count " snapshots)")
+    ; Turn the manager off first -- otherwise the next scan (or a window event)
+    ; immediately re-maximizes everything we just put back.
+    wasOn := ACCORDION_ENABLED
+    if (wasOn)
+        SetAccordion(false)
     n := 0
     for hwnd, o in Original {
         if !WinExist("ahk_id " hwnd)
@@ -286,7 +295,10 @@ Cmd_RestoreAll(*) {
             n++
         }
     }
-    Notify("restored " n " windows")
+    Log("restore all: " n " window(s) restored, accordion "
+        . (wasOn ? "turned OFF" : "was already OFF"))
+    Notify("accordion OFF  -  restored " n " windows"
+           . "`nCtrl+Alt+Win+Space to re-enable")
 }
 
 ; ---------------------------------------------------------------------------
@@ -956,20 +968,22 @@ SetMouseIntegration(on) {
     }
     MOUSE_INTEGRATION  := on ? true : false
     MOUSE_FOLLOW_FOCUS := on ? true : false
-    Log("cmd: mouse integration -> " (on ? "ON" : "OFF"))
+    Log("mouse integration -> " (on ? "ON" : "OFF"))
     if (on) {
         SpiSetValue(SPI_SETACTIVEWNDTRKTIMEOUT, MOUSE_TRK_TIMEOUT, "SETACTIVEWNDTRKTIMEOUT", SPI_GETACTIVEWNDTRKTIMEOUT)
         SpiSetValue(SPI_SETACTIVEWNDTRKZORDER, 1, "SETACTIVEWNDTRKZORDER (autoraise)", SPI_GETACTIVEWNDTRKZORDER)
         SpiSetValue(SPI_SETACTIVEWINDOWTRACKING, 1, "SETACTIVEWINDOWTRACKING", SPI_GETACTIVEWINDOWTRACKING)
     } else {
-        SpiSetValue(SPI_SETACTIVEWINDOWTRACKING, ORIG_TRACKING = "" ? 0 : ORIG_TRACKING,
+        if (ORIG_TRACKING = "")
+            return                    ; never enabled -- nothing to restore
+        SpiSetValue(SPI_SETACTIVEWINDOWTRACKING, ORIG_TRACKING,
                     "SETACTIVEWINDOWTRACKING (restore)", SPI_GETACTIVEWINDOWTRACKING)
-        SpiSetValue(SPI_SETACTIVEWNDTRKZORDER, ORIG_ZORDER = "" ? 0 : ORIG_ZORDER,
-                    "SETACTIVEWNDTRKZORDER (restore)", SPI_GETACTIVEWNDTRKZORDER)
+        SpiSetValue(SPI_SETACTIVEWNDTRKZORDER, ORIG_ZORDER, "SETACTIVEWNDTRKZORDER (restore)",
+                    SPI_GETACTIVEWNDTRKZORDER)
         if (ORIG_TRKTIME != "")
             SpiSetValue(SPI_SETACTIVEWNDTRKTIMEOUT, ORIG_TRKTIME, "SETACTIVEWNDTRKTIMEOUT (restore)", SPI_GETACTIVEWNDTRKTIMEOUT)
     }
-    Notify("mouse integration " (on ? "ON (follows focus + X-mouse + autoraise)" : "OFF"))
+
 }
 
 RestoreSystemSettings() {
